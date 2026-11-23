@@ -46,3 +46,37 @@
 | **Hiệu quả mã hóa dữ liệu tĩnh** | Bật TDE (`AES_256`), mở `SecurityDemo_DaMaHoa.bak` bằng Notepad | Không tìm thấy chuỗi gốc, nội dung biến thành mã nhị phân → Ngăn chặn đọc lén tệp `.mdf`, `.ldf`, `.bak`. |
 | **Tính minh bạch với ứng dụng** | Chạy `SELECT` trên bảng `SinhVien` và `ThanhToanHocPhi` | Trả về dữ liệu bình thường → Mã hóa/giải mã diễn ra tự động ở tầng I/O, không ảnh hưởng logic ứng dụng. |
 | **Chống đánh cắp & Phục hồi sự cố** | Xóa khóa và chạy `RESTORE` (lỗi `Msg 33111`), sau đó nạp lại `.cer`/`.pvk` | Ngăn chặn khôi phục trái phép sang máy chủ lạ; đảm bảo phục hồi an toàn khi quản trị viên nắm giữ đúng khóa. |
+
+---
+
+# Thực nghiệm 2: Cơ chế Xác thực trong SQL Server (Authentication)
+
+* **Cơ sở dữ liệu thực nghiệm:** `SecurityDemo` (7 bảng)
+* **Tệp kịch bản SQL:** [`KichBan_Demo_XacThuc.sql`](./KichBan_Demo_XacThuc.sql)
+
+## Tóm tắt các bước thực hiện Demo
+
+### Bước 1 & 2: Chuẩn bị CSDL `SecurityDemo` và tài khoản đối chứng
+* Khởi tạo mới CSDL `SecurityDemo` gồm 7 bảng nghiệp vụ và nạp dữ liệu mẫu.
+* Tạo tài khoản SQL nội bộ `Login_SinhVien_Demo` (mật khẩu `Sv@StrongPass2026`), ánh xạ thành `User_SinhVien_Demo` và cấp quyền `SELECT` trên bảng `SinhVien`.
+
+### Bước 3: Kiểm chứng Windows Authentication Mode (Xác thực tin cậy)
+* **Cấu hình:** Chuột phải tên Server → **Properties** → **Security** → chọn **Windows Authentication mode** → **OK** → **Restart** dịch vụ SQL Server.
+* **Kết quả kiểm chứng:**
+  * Đăng nhập bằng tài khoản Windows hiện tại thành công (`SERVERPROPERTY('IsIntegratedSecurityOnly') = 1`, giao thức `NTLM`/`KERBEROS`), không truyền mật khẩu qua mạng.
+  * Thử đăng nhập bằng `Login_SinhVien_Demo` (SQL Server Authentication) → Hệ thống chặn ngay lập tức và báo lỗi **`Msg 18456, State 58`** (*Server is configured for Windows authentication only*).
+
+### Bước 4: Kiểm chứng Mixed Mode Authentication (Xác thực hỗn hợp)
+* **Cấu hình:** Chuột phải tên Server → **Properties** → **Security** → chọn **SQL Server and Windows Authentication mode** → **OK** → **Restart** dịch vụ SQL Server.
+* **Kết quả kiểm chứng:**
+  * Đăng nhập bằng `Login_SinhVien_Demo` thành công (`SERVERPROPERTY('IsIntegratedSecurityOnly') = 0`, giao thức `SQL`) và truy vấn được dữ liệu từ bảng `SecurityDemo.dbo.SinhVien`.
+  * Trên Object Explorer hiển thị song song cả kết nối Windows và kết nối SQL Server Authentication.
+
+## Bảng tổng hợp đối chiếu
+
+| Tiêu chí quan sát | Windows Authentication Mode | Mixed Mode Authentication |
+| :--- | :--- | :--- |
+| **`IsIntegratedSecurityOnly`** | `1` | `0` |
+| **Đăng nhập Windows** | Thành công (`NTLM` / `KERBEROS`) | Thành công (`NTLM` / `KERBEROS`) |
+| **Đăng nhập SQL Login** | Bị chặn – Lỗi **`Msg 18456, State 58`** | Thành công (`auth_scheme = SQL`) |
+| **Phạm vi áp dụng** | Hệ thống nội bộ dùng hạ tầng Windows/AD | Ứng dụng đa nền tảng, web, kết nối ngoài domain |
