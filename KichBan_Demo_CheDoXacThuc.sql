@@ -261,6 +261,11 @@ CREATE USER User_SinhVien_Demo FOR LOGIN Login_SinhVien_Demo;
 GRANT SELECT ON dbo.SinhVien TO User_SinhVien_Demo;
 GO
 
+-- Cấp quyền xem trạng thái kết nối (bắt buộc phải chuyển về master)
+USE master;
+GO
+GRANT VIEW SERVER STATE TO Login_SinhVien_Demo;
+GO
 
 /* =========================================================================================
    BƯỚC 3: KIỂM CHỨNG CHẾ ĐỘ WINDOWS AUTHENTICATION MODE
